@@ -5,6 +5,7 @@ mod error;
 mod handlers;
 mod middleware;
 mod models;
+mod repositories;
 mod routes;
 mod services;
 mod state;
@@ -56,12 +57,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create notification broadcaster
     let (notification_tx, _) = broadcast::channel(100);
 
+    // Create repositories
+    let user_repository = crate::repositories::user_repository::UserRepository::new(db.clone());
+    let task_repository = crate::repositories::task_repository::TaskRepository::new(db.clone());
+
     // Create application state
     let state = AppState {
         db: db.clone(),
         config: config.clone(),
         oauth_client,
         notification_tx: notification_tx.clone(),
+        user_repository,
+        task_repository,
     };
 
     // Start notification service

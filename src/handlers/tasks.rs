@@ -41,32 +41,12 @@ pub async fn get_tasks(
     Extension(user_id): Extension<Uuid>,
     Query(filters): Query<TaskFilters>,
 ) -> Result<Json<Vec<Task>>> {
-    let mut query = "SELECT * FROM tasks WHERE user_id = $1".to_string();
-    let mut params_count = 1;
+    let repo_filters = crate::repositories::task_repository::TaskFilters {
+        status: filters.status,
+        priority: filters.priority,
+    };
 
-    if filters.status.is_some() {
-        params_count += 1;
-        query.push_str(&format!(" AND status = ${}", params_count));
-    }
-
-    if filters.priority.is_some() {
-        params_count += 1;
-        query.push_str(&format!(" AND priority = ${}", params_count));
-    }
-
-    query.push_str(" ORDER BY created_at DESC");
-
-    let mut db_query = sqlx::query_as::<_, Task>(&query).bind(user_id);
-
-    if let Some(status) = filters.status {
-        db_query = db_query.bind(status);
-    }
-
-    if let Some(priority) = filters.priority {
-        db_query = db_query.bind(priority);
-    }
-
-    let tasks = db_query.fetch_all(&state.db).await?;
+    let tasks = state.task_repository.find_all(user_id, repo_filters).await?;
 
     Ok(Json(tasks))
 }
@@ -91,10 +71,7 @@ pub async fn get_task(
     Extension(user_id): Extension<Uuid>,
     Path(task_id): Path<Uuid>,
 ) -> Result<Json<Task>> {
-    let task = query_as::<_, Task>("SELECT * FROM tasks WHERE id = $1 AND user_id = $2")
-        .bind(task_id)
-        .bind(user_id)
-        .fetch_optional(&state.db)
+    let task = state.task_repository.find_by_id(task_id, user_id)
         .await?
         .ok_or_else(|| AppError::NotFound("Task not found".to_string()))?;
 
@@ -124,19 +101,14 @@ pub async fn create_task(
 
     let priority = payload.priority.unwrap_or_else(|| "Medium".to_string());
 
-    let task = query_as::<_, Task>(
-        "INSERT INTO tasks (user_id, title, description, priority, due_date, reminder_time)
-         VALUES ($1, $2, $3, $4, $5, $6)
-         RETURNING *"
-    )
-    .bind(user_id)
-    .bind(&payload.title)
-    .bind(&payload.description)
-    .bind(&priority)
-    .bind(&payload.due_date)
-    .bind(&payload.reminder_time)
-    .fetch_one(&state.db)
-    .await?;
+    let task = state.task_repository.create(
+        user_id,
+        &payload.title,
+        payload.description.as_deref(),
+        &priority,
+        payload.due_date,
+        payload.reminder_time,
+    ).await?;
 
     Ok((StatusCode::CREATED, Json(task)))
 }
@@ -166,36 +138,20 @@ pub async fn update_task(
     payload.validate()
         .map_err(|e| AppError::Validation(e.to_string()))?;
 
-    let existing_task = query_as::<_, Task>("SELECT * FROM tasks WHERE id = $1 AND user_id = $2")
-        .bind(task_id)
-        .bind(user_id)
-        .fetch_optional(&state.db)
+    let existing_task = state.task_repository.find_by_id(task_id, user_id)
         .await?
         .ok_or_else(|| AppError::NotFound("Task not found".to_string()))?;
 
-    let task = query_as::<_, Task>(
-        "UPDATE tasks SET
-            title = COALESCE($1, title),
-            description = COALESCE($2, description),
-            status = COALESCE($3, status),
-            priority = COALESCE($4, priority),
-            due_date = COALESCE($5, due_date),
-            reminder_time = COALESCE($6, reminder_time),
-            notified = CASE WHEN $6 IS NOT NULL THEN false ELSE notified END,
-            updated_at = NOW()
-         WHERE id = $7 AND user_id = $8
-         RETURNING *"
-    )
-    .bind(&payload.title)
-    .bind(&payload.description)
-    .bind(&payload.status)
-    .bind(&payload.priority)
-    .bind(&payload.due_date)
-    .bind(&payload.reminder_time)
-    .bind(task_id)
-    .bind(user_id)
-    .fetch_one(&state.db)
-    .await?;
+    let task = state.task_repository.update(
+        task_id,
+        user_id,
+        payload.title.as_deref(),
+        payload.description.as_deref(),
+        payload.status.as_deref(),
+        payload.priority.as_deref(),
+        payload.due_date,
+        payload.reminder_time,
+    ).await?;
 
     Ok(Json(task))
 }
@@ -220,13 +176,9 @@ pub async fn delete_task(
     Extension(user_id): Extension<Uuid>,
     Path(task_id): Path<Uuid>,
 ) -> Result<StatusCode> {
-    let result = sqlx::query("DELETE FROM tasks WHERE id = $1 AND user_id = $2")
-        .bind(task_id)
-        .bind(user_id)
-        .execute(&state.db)
-        .await?;
+    let rows_affected = state.task_repository.delete(task_id, user_id).await?;
 
-    if result.rows_affected() == 0 {
+    if rows_affected == 0 {
         return Err(AppError::NotFound("Task not found".to_string()));
     }
 
@@ -255,16 +207,8 @@ pub async fn update_task_status(
     Path(task_id): Path<Uuid>,
     Json(payload): Json<UpdateTaskStatusRequest>,
 ) -> Result<Json<Task>> {
-    let task = query_as::<_, Task>(
-        "UPDATE tasks SET status = $1, updated_at = NOW()
-         WHERE id = $2 AND user_id = $3
-         RETURNING *"
-    )
-    .bind(&payload.status)
-    .bind(task_id)
-    .bind(user_id)
-    .fetch_optional(&state.db)
-    .await?
+    let task = state.task_repository.update_status(task_id, user_id, &payload.status)
+        .await?
     .ok_or_else(|| AppError::NotFound("Task not found".to_string()))?;
 
     Ok(Json(task))

@@ -40,21 +40,15 @@ pub async fn register(
 
     let password_hash = hash_password(&payload.password)?;
 
-    let user = query_as::<_, User>(
-        "INSERT INTO users (username, email, password_hash) VALUES ($1, $2, $3) RETURNING *"
-    )
-    .bind(&payload.username)
-    .bind(&payload.email)
-    .bind(&password_hash)
-    .fetch_one(&state.db)
-    .await
-    .map_err(|e| {
-        if e.to_string().contains("duplicate key") {
-            AppError::BadRequest("User already exists".to_string())
-        } else {
-            AppError::Database(e)
-        }
-    })?;
+    let user = state.user_repository.create(&payload.username, &payload.email, &password_hash)
+        .await
+        .map_err(|e| {
+            if e.to_string().contains("duplicate key") {
+                AppError::BadRequest("User already exists".to_string())
+            } else {
+                AppError::Database(e.into())
+            }
+        })?;
 
     let token = create_jwt(
         user.id,
@@ -91,9 +85,7 @@ pub async fn login(
     payload.validate()
         .map_err(|e| AppError::Validation(e.to_string()))?;
 
-    let user = query_as::<_, User>("SELECT * FROM users WHERE email = $1")
-        .bind(&payload.email)
-        .fetch_optional(&state.db)
+    let user = state.user_repository.find_by_email(&payload.email)
         .await?
         .ok_or_else(|| AppError::Authentication("Invalid credentials".to_string()))?;
 
@@ -178,20 +170,12 @@ pub async fn google_callback(
         .await
         .map_err(|_| AppError::Authentication("Failed to parse user info".to_string()))?;
 
-    let user = query_as::<_, User>(
-        "INSERT INTO users (username, email, google_id, avatar_url)
-         VALUES ($1, $2, $3, $4)
-         ON CONFLICT (google_id) DO UPDATE SET
-            avatar_url = EXCLUDED.avatar_url,
-            updated_at = NOW()
-         RETURNING *"
-    )
-    .bind(&user_info.name)
-    .bind(&user_info.email)
-    .bind(&user_info.id)
-    .bind(&user_info.picture)
-    .fetch_one(&state.db)
-    .await?;
+    let user = state.user_repository.upsert_google_user(
+        &user_info.name,
+        &user_info.email,
+        &user_info.id,
+        &user_info.picture,
+    ).await?;
 
     let token = create_jwt(
         user.id,

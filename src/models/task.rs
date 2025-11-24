@@ -58,3 +58,24 @@ pub struct Task {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_task_status_display() {
+        assert_eq!(TaskStatus::Pending.to_string(), "Pending");
+        assert_eq!(TaskStatus::InProgress.to_string(), "InProgress");
+        assert_eq!(TaskStatus::Completed.to_string(), "Completed");
+        assert_eq!(TaskStatus::Archived.to_string(), "Archived");
+    }
+
+    #[test]
+    fn test_task_priority_display() {
+        assert_eq!(TaskPriority::Low.to_string(), "Low");
+        assert_eq!(TaskPriority::Medium.to_string(), "Medium");
+        assert_eq!(TaskPriority::High.to_string(), "High");
+        assert_eq!(TaskPriority::Urgent.to_string(), "Urgent");
+    }
+}

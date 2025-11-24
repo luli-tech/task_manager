@@ -3,12 +3,16 @@ use oauth2::basic::BasicClient;
 use std::sync::Arc;
 use tokio::sync::broadcast;
 
+use crate::repositories::{user_repository::UserRepository, task_repository::TaskRepository};
+
 #[derive(Clone)]
 pub struct AppState {
     pub db: DbPool,
     pub config: Arc<Config>,
     pub oauth_client: BasicClient,
     pub notification_tx: broadcast::Sender<String>,
+    pub user_repository: UserRepository,
+    pub task_repository: TaskRepository,
 }
 
 #[derive(Clone)]
