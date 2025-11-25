@@ -46,7 +46,7 @@ pub async fn register(
             if e.to_string().contains("duplicate key") {
                 AppError::BadRequest("User already exists".to_string())
             } else {
-                AppError::Database(e.into())
+                AppError::Database(e)
             }
         })?;
 

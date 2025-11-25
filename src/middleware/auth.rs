@@ -7,10 +7,10 @@ use axum::{
 };
 use uuid::Uuid;
 
-pub async fn auth_middleware<B>(
+pub async fn auth_middleware(
     State(state): State<AppState>,
-    mut req: Request<B>,
-    next: Next<B>,
+    mut req: Request,
+    next: Next,
 ) -> Result<Response, AppError> {
     let auth_header = req
         .headers()
