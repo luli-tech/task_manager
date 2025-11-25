@@ -1,6 +1,7 @@
 use crate::{
     dto::*,
     handlers::{
+        self,
         auth::{register, login, google_login, google_callback},
         tasks::{get_tasks, get_task, create_task, update_task, delete_task, update_task_status},
         notifications::{get_notifications, notification_stream, mark_notification_read, delete_notification, update_notification_preferences},

@@ -43,11 +43,12 @@ pub async fn register(
     let user = state.user_repository.create(&payload.username, &payload.email, &password_hash)
         .await
         .map_err(|e| {
-            if e.to_string().contains("duplicate key") {
-                AppError::BadRequest("User already exists".to_string())
-            } else {
-                AppError::Database(e)
+            if let AppError::Database(ref db_err) = e {
+                if db_err.to_string().contains("duplicate key") {
+                    return AppError::BadRequest("User already exists".to_string());
+                }
             }
+            e
         })?;
 
     let token = create_jwt(

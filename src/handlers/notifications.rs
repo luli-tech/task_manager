@@ -51,7 +51,7 @@ pub async fn get_notifications(
 pub async fn notification_stream(
     State(state): State<AppState>,
     Extension(user_id): Extension<Uuid>,
-) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
+) -> Sse<impl Stream<Item = std::result::Result<Event, Infallible>>> {
     let rx = state.notification_tx.subscribe();
 
     let stream = tokio_stream::wrappers::BroadcastStream::new(rx)

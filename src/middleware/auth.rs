@@ -1,5 +1,6 @@
 use crate::{auth::verify_jwt, error::AppError, state::AppState};
 use axum::{
+    body::Body,
     extract::State,
     http::{Request, StatusCode},
     middleware::Next,
@@ -9,7 +10,7 @@ use uuid::Uuid;
 
 pub async fn auth_middleware(
     State(state): State<AppState>,
-    mut req: Request,
+    mut req: Request<Body>,
     next: Next,
 ) -> Result<Response, AppError> {
     let auth_header = req
