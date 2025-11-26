@@ -13,6 +13,8 @@ pub struct User {
     pub password_hash: Option<String>,
     pub google_id: Option<String>,
     pub avatar_url: Option<String>,
+    pub bio: Option<String>,
+    pub theme: String,
     pub notification_enabled: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -24,6 +26,8 @@ pub struct UserResponse {
     pub username: String,
     pub email: String,
     pub avatar_url: Option<String>,
+    pub bio: Option<String>,
+    pub theme: String,
     pub notification_enabled: bool,
     pub created_at: DateTime<Utc>,
 }
@@ -35,6 +39,8 @@ impl From<User> for UserResponse {
             username: user.username,
             email: user.email,
             avatar_url: user.avatar_url,
+            bio: user.bio,
+            theme: user.theme,
             notification_enabled: user.notification_enabled,
             created_at: user.created_at,
         }

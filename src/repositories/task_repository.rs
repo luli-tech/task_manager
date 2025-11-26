@@ -228,4 +228,79 @@ impl TaskRepository {
 
         Ok(())
     }
+
+    pub async fn get_user_stats(&self, user_id: Uuid) -> Result<(i64, i64, i64, i64, i64, i64, i64, i64, i64)> {
+        let total_tasks: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM tasks WHERE user_id = $1")
+            .bind(user_id)
+            .fetch_one(&self.pool)
+            .await?;
+
+        let pending_tasks: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM tasks WHERE user_id = $1 AND status = 'Pending'"
+        )
+        .bind(user_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        let in_progress_tasks: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM tasks WHERE user_id = $1 AND status = 'InProgress'"
+        )
+        .bind(user_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        let completed_tasks: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM tasks WHERE user_id = $1 AND status = 'Completed'"
+        )
+        .bind(user_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        let archived_tasks: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM tasks WHERE user_id = $1 AND status = 'Archived'"
+        )
+        .bind(user_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        let low_priority_tasks: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM tasks WHERE user_id = $1 AND priority = 'Low'"
+        )
+        .bind(user_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        let medium_priority_tasks: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM tasks WHERE user_id = $1 AND priority = 'Medium'"
+        )
+        .bind(user_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        let high_priority_tasks: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM tasks WHERE user_id = $1 AND priority = 'High'"
+        )
+        .bind(user_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        let urgent_priority_tasks: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM tasks WHERE user_id = $1 AND priority = 'Urgent'"
+        )
+        .bind(user_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok((
+            total_tasks,
+            pending_tasks,
+            in_progress_tasks,
+            completed_tasks,
+            archived_tasks,
+            low_priority_tasks,
+            medium_priority_tasks,
+            high_priority_tasks,
+            urgent_priority_tasks,
+        ))
+    }
 }

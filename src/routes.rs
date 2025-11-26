@@ -5,6 +5,7 @@ use crate::{
         auth::{register, login, google_login, google_callback},
         tasks::{get_tasks, get_task, create_task, update_task, delete_task, update_task_status},
         notifications::{get_notifications, notification_stream, mark_notification_read, delete_notification, update_notification_preferences},
+        users::{get_current_user, update_current_user, get_user_stats},
     },
     middleware::auth_middleware,
     models::*,
@@ -37,6 +38,9 @@ use utoipa_swagger_ui::SwaggerUi;
         crate::handlers::notifications::mark_notification_read,
         crate::handlers::notifications::delete_notification,
         crate::handlers::notifications::update_notification_preferences,
+        crate::handlers::users::get_current_user,
+        crate::handlers::users::update_current_user,
+        crate::handlers::users::get_user_stats,
     ),
     components(
         schemas(
@@ -47,6 +51,8 @@ use utoipa_swagger_ui::SwaggerUi;
             UpdateTaskRequest,
             UpdateTaskStatusRequest,
             UpdateNotificationPreferencesRequest,
+            UpdateProfileRequest,
+            UserStatsResponse,
             User,
             UserResponse,
             Task,
@@ -58,7 +64,8 @@ use utoipa_swagger_ui::SwaggerUi;
     tags(
         (name = "auth", description = "Authentication endpoints"),
         (name = "tasks", description = "Task management endpoints"),
-        (name = "notifications", description = "Notification endpoints")
+        (name = "notifications", description = "Notification endpoints"),
+        (name = "users", description = "User profile endpoints")
     ),
     modifiers(&SecurityAddon)
 )]
@@ -123,11 +130,19 @@ pub fn create_router(state: AppState) -> Router {
             auth_middleware,
         ));
 
-    // Combine all routes
+    let user_routes = Router::new()
+        .route("/me", get(handlers::get_current_user).put(handlers::update_current_user))
+        .route("/me/stats", get(handlers::get_user_stats))
+        .route_layer(middleware::from_fn_with_state(
+            state.clone(),
+            auth_middleware,
+        ));
+
     let api_routes = Router::new()
         .nest("/auth", auth_routes)
         .nest("/tasks", task_routes)
-        .nest("/notifications", notification_routes);
+        .nest("/notifications", notification_routes)
+        .nest("/users", user_routes);
 
     Router::new()
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
