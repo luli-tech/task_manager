@@ -4,10 +4,14 @@ A robust task management REST API built with Rust, Axum, PostgreSQL, featuring J
 
 ## Features
 
-- ✅User Authentication**
+- **User Authentication**
   - Manual registration and login with JWT
+  - Short-lived access tokens (15 min) + long-lived refresh tokens (7 days)
+  - Token refresh endpoint for seamless re-authentication
+  - Secure token revocation on logout
   - Google OAuth 2.0 integration
   - Secure password hashing with bcrypt
+  - Role-based authorization (user/admin)
 
 - ✅Task Management**
   - Full CRUD operations
@@ -131,6 +135,8 @@ Once the server is running, access the interactive API documentation:
 |--------|----------|-------------|
 | POST | `/api/auth/register` | Register new user |
 | POST | `/api/auth/login` | Login with email/password |
+| POST | `/api/auth/refresh` | Refresh access token |
+| POST | `/api/auth/logout` | Logout and revoke refresh token |
 | GET | `/api/auth/google` | Initiate Google OAuth |
 | GET | `/api/auth/google/callback` | Google OAuth callback |
 
@@ -230,24 +236,105 @@ curl http://localhost:3000/api/tasks?status=Completed \
 
 ## Project Structure
 
+The project follows a **modular service-repository architecture** with clear separation of concerns:
+
 ```
 task-manager/
-├── migrations/          # Database migrations
+├── migrations/                    # Database migrations
+│   ├── 20251124_001_init.sql
+│   └── 20251126_001_add_features.sql
+│
 ├── src/
-│   ├── auth/           # Authentication (JWT, OAuth, passwords)
-│   ├── handlers/       # API request handlers
-│   ├── middleware/     # Auth middleware
-│   ├── models/         # Database models
-│   ├── services/       # Background services (notifications)
-│   ├── db.rs           # Database connection
-│   ├── dto.rs          # Data transfer objects
-│   ├── error.rs        # Error handling
-│   ├── routes.rs       # Route configuration
-│   ├── state.rs        # Application state
-│   └── main.rs         # Entry point
-├── Cargo.toml
+│   ├── admin/                     # Admin module
+│   │   ├── admin.middleware.rs    # Admin authorization middleware
+│   │   └── routes.rs              # Module exports
+│   │
+│   ├── auth/                      # Authentication module
+│   │   ├── auth.dto.rs            # Auth DTOs (LoginRequest, RegisterRequest, etc.)
+│   │   ├── auth.handlers.rs       # Auth handlers (register, login, OAuth)
+│   │   ├── auth.models.rs         # RefreshToken model
+│   │   ├── auth.repository.rs     # RefreshToken repository
+│   │   ├── auth.service.rs        # Auth business logic
+│   │   ├── jwt.rs                 # JWT token generation/validation
+│   │   ├── oauth.rs               # Google OAuth client
+│   │   ├── password.rs            # Password hashing/verification
+│   │   └── routes.rs              # Module exports
+│   │
+│   ├── message/                   # Messaging module
+│   │   ├── message.dto.rs         # Message DTOs
+│   │   ├── message.handlers.rs    # Message handlers
+│   │   ├── message.models.rs      # Message models
+│   │   ├── message.repository.rs  # Message database operations
+│   │   ├── message.service.rs     # Message business logic
+│   │   └── routes.rs              # Module exports
+│   │
+│   ├── notification/              # Notification module
+│   │   ├── notification.dto.rs    # Notification DTOs
+│   │   ├── notification.handlers.rs # Notification handlers
+│   │   ├── notification.models.rs # Notification models
+│   │   ├── notification.repository.rs # Notification database operations
+│   │   ├── notification.service.rs # Background notification service
+│   │   └── routes.rs              # Module exports
+│   │
+│   ├── task/                      # Task module
+│   │   ├── task.dto.rs            # Task DTOs (CreateTaskRequest, etc.)
+│   │   ├── task.handlers.rs       # Task handlers
+│   │   ├── task.models.rs         # Task, TaskStatus, TaskPriority models
+│   │   ├── task.repository.rs     # Task database operations
+│   │   ├── task.service.rs        # Task business logic
+│   │   └── routes.rs              # Module exports
+│   │
+│   ├── user/                      # User module
+│   │   ├── user.dto.rs            # User DTOs (UpdateProfileRequest, etc.)
+│   │   ├── user.handlers.rs       # User handlers
+│   │   ├── user.models.rs         # User, UserResponse models
+│   │   ├── user.repository.rs     # User database operations
+│   │   ├── user.service.rs        # User business logic
+│   │   └── routes.rs              # Module exports
+│   │
+│   ├── middleware/                # Middleware
+│   │   └── auth.rs                # JWT authentication middleware
+│   │
+│   ├── db.rs                      # Database connection & migrations
+│   ├── error.rs                   # Error handling & AppError type
+│   ├── routes.rs                  # API route configuration
+│   ├── state.rs                   # AppState & Config
+│   └── main.rs                    # Application entry point
+│
+├── .github/
+│   └── workflows/
+│       └── ci.yml                 # GitHub Actions CI/CD
+│
+├── Cargo.toml                     # Rust dependencies
+├── .env.example                   # Environment variables template
 └── README.md
 ```
+
+### Architecture Layers
+
+**Repository Layer** (`*.repository.rs`)
+- Direct database interactions
+- SQL queries using SQLx
+- Returns domain models
+
+**Service Layer** (`*.service.rs`)
+- Business logic
+- Orchestrates repositories
+- Handles complex operations
+
+**Handler Layer** (`*.handlers.rs`)
+- HTTP request/response handling
+- Input validation
+- Calls services
+- Returns JSON responses
+
+**Models** (`*.models.rs`)
+- Database models
+- Response DTOs
+
+**DTOs** (`*.dto.rs`)
+- Request/response data structures
+- Validation rules
 
 ## Development
 
