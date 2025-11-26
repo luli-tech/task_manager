@@ -20,7 +20,7 @@ use super::{
     models::Notification,
 };
 
-/// Get all notifications for the authenticated user
+/// Get all notifications for the authenticated user only
 #[utoipa::path(
     get,
     path = "/api/notifications",
