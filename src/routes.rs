@@ -6,6 +6,7 @@ use crate::{
         tasks::{get_tasks, get_task, create_task, update_task, delete_task, update_task_status},
         notifications::{get_notifications, notification_stream, mark_notification_read, delete_notification, update_notification_preferences},
         users::{get_current_user, update_current_user, get_user_stats},
+        messages::{send_message, get_conversation, get_conversations, mark_message_read, message_stream},
     },
     middleware::auth_middleware,
     models::*,
@@ -41,6 +42,11 @@ use utoipa_swagger_ui::SwaggerUi;
         crate::handlers::users::get_current_user,
         crate::handlers::users::update_current_user,
         crate::handlers::users::get_user_stats,
+        crate::handlers::messages::send_message,
+        crate::handlers::messages::get_conversation,
+        crate::handlers::messages::get_conversations,
+        crate::handlers::messages::mark_message_read,
+        crate::handlers::messages::message_stream,
     ),
     components(
         schemas(
@@ -53,19 +59,24 @@ use utoipa_swagger_ui::SwaggerUi;
             UpdateNotificationPreferencesRequest,
             UpdateProfileRequest,
             UserStatsResponse,
+            SendMessageRequest,
+            ConversationUser,
             User,
             UserResponse,
             Task,
             TaskStatus,
             TaskPriority,
             Notification,
+            Message,
+            MessageResponse,
         )
     ),
     tags(
         (name = "auth", description = "Authentication endpoints"),
         (name = "tasks", description = "Task management endpoints"),
         (name = "notifications", description = "Notification endpoints"),
-        (name = "users", description = "User profile endpoints")
+        (name = "users", description = "User profile endpoints"),
+        (name = "messages", description = "User messaging endpoints")
     ),
     modifiers(&SecurityAddon)
 )]
@@ -138,11 +149,23 @@ pub fn create_router(state: AppState) -> Router {
             auth_middleware,
         ));
 
+    let message_routes = Router::new()
+        .route("/", post(handlers::send_message))
+        .route("/conversations", get(handlers::get_conversations))
+        .route("/stream", get(handlers::message_stream))
+        .route("/:user_id", get(handlers::get_conversation))
+        .route("/:id/read", patch(handlers::mark_message_read))
+        .route_layer(middleware::from_fn_with_state(
+            state.clone(),
+            auth_middleware,
+        ));
+
     let api_routes = Router::new()
         .nest("/auth", auth_routes)
         .nest("/tasks", task_routes)
         .nest("/notifications", notification_routes)
-        .nest("/users", user_routes);
+        .nest("/users", user_routes)
+        .nest("/messages", message_routes);
 
     Router::new()
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))

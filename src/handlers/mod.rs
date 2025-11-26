@@ -2,6 +2,7 @@ pub mod auth;
 pub mod notifications;
 pub mod tasks;
 pub mod users;
+pub mod messages;
 
 pub use auth::{google_callback, google_login, login, register};
 pub use notifications::{
@@ -12,3 +13,6 @@ pub use tasks::{
     create_task, delete_task, get_task, get_tasks, update_task, update_task_status,
 };
 pub use users::{get_current_user, get_user_stats, update_current_user};
+pub use messages::{
+    send_message, get_conversation, get_conversations, mark_message_read, message_stream,
+};

@@ -56,11 +56,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create notification broadcaster
     let (notification_tx, _) = broadcast::channel(100);
+    
+    // Create message broadcaster
+    let (message_tx, _) = broadcast::channel(100);
 
     // Create repositories
     let user_repository = crate::repositories::user_repository::UserRepository::new(db.clone());
     let task_repository = crate::repositories::task_repository::TaskRepository::new(db.clone());
     let notification_repository = crate::repositories::notification_repository::NotificationRepository::new(db.clone());
+    let message_repository = crate::repositories::message_repository::MessageRepository::new(db.clone());
 
     // Create application state
     let state = AppState {
@@ -68,9 +72,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         config: config.clone(),
         oauth_client,
         notification_tx: notification_tx.clone(),
+        message_tx: message_tx.clone(),
         user_repository,
         task_repository,
         notification_repository,
+        message_repository,
     };
 
     // Start notification service

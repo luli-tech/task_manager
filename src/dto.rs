@@ -92,3 +92,22 @@ pub struct UserStatsResponse {
     pub high_priority_tasks: i64,
     pub urgent_priority_tasks: i64,
 }
+
+// Message DTOs
+#[derive(Debug, Deserialize, Validate, ToSchema)]
+pub struct SendMessageRequest {
+    pub receiver_id: uuid::Uuid,
+    #[validate(length(min = 1))]
+    pub content: String,
+    pub image_url: Option<String>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ConversationUser {
+    pub user_id: uuid::Uuid,
+    pub username: String,
+    pub avatar_url: Option<String>,
+    pub last_message: String,
+    pub last_message_time: chrono::DateTime<chrono::Utc>,
+    pub unread_count: i64,
+}

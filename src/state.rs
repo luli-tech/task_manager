@@ -7,6 +7,7 @@ use crate::repositories::{
     user_repository::UserRepository,
     task_repository::TaskRepository,
     notification_repository::NotificationRepository,
+    message_repository::MessageRepository,
 };
 
 #[derive(Clone)]
@@ -15,9 +16,11 @@ pub struct AppState {
     pub config: Arc<Config>,
     pub oauth_client: BasicClient,
     pub notification_tx: broadcast::Sender<String>,
+    pub message_tx: broadcast::Sender<(uuid::Uuid, crate::models::Message)>,
     pub user_repository: UserRepository,
     pub task_repository: TaskRepository,
     pub notification_repository: NotificationRepository,
+    pub message_repository: MessageRepository,
 }
 
 #[derive(Clone)]
