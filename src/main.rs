@@ -18,7 +18,7 @@ mod user;
 
 use auth::create_oauth_client;
 use db::{create_pool, run_migrations};
-use notification::service::start_notification_service;
+use notification::start_notification_service;
 use routes::create_router;
 use state::{AppState, Config};
 use std::sync::Arc;

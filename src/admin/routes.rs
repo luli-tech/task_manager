@@ -1,3 +1,2 @@
-pub mod admin_middleware;
-
-pub use admin_middleware::admin_authorization;
+// Re-export all admin module items
+pub use crate::admin::admin_middleware::admin_authorization;
