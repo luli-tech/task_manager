@@ -1,13 +1,19 @@
+#[path = "admin/routes.rs"]
 mod admin;
+#[path = "auth/routes.rs"]
 mod auth;
 mod db;
 mod error;
+#[path = "message/routes.rs"]
 mod message;
 mod middleware;
+#[path = "notification/routes.rs"]
 mod notification;
 mod routes;
 mod state;
+#[path = "task/routes.rs"]
 mod task;
+#[path = "user/routes.rs"]
 mod user;
 
 use auth::create_oauth_client;
