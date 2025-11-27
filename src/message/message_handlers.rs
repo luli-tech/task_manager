@@ -20,8 +20,8 @@ use crate::{
     state::AppState,
     task::task_dto::PaginatedResponse,
     message::{
-        message_dto::{ConversationUser, SendMessageRequest},
-        message_models::{Message, MessageResponse},
+        message_dto::SendMessageRequest,
+        message_models::MessageResponse,
     },
 };
 
@@ -55,7 +55,7 @@ pub async fn send_message(
     payload.validate()?;
 
     // Verify receiver exists
-    let receiver = state
+    let _receiver = state
         .user_repository
         .find_by_id(payload.receiver_id)
         .await?

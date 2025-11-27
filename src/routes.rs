@@ -31,7 +31,8 @@ use axum::{
     routing::{delete, get, patch, post, put},
     Router,
 };
-use tower_http::cors::{Any, CorsLayer};
+use axum::http::{header::{AUTHORIZATION, CONTENT_TYPE}, Method};
+use tower_http::cors::{AllowOrigin, CorsLayer};
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
@@ -120,9 +121,20 @@ impl utoipa::Modify for SecurityAddon {
 
 pub fn create_router(state: AppState) -> Router {
     let cors = CorsLayer::new()
-        .allow_origin(Any)
-        .allow_methods(Any)
-        .allow_headers(Any);
+        .allow_origin(AllowOrigin::list([
+            "http://localhost:3000".parse().unwrap(),
+            "http://127.0.0.1:3000".parse().unwrap(),
+        ]))
+        .allow_methods([
+            Method::GET,
+            Method::POST,
+            Method::PUT,
+            Method::DELETE,
+            Method::PATCH,
+            Method::OPTIONS,
+        ])
+        .allow_headers([AUTHORIZATION, CONTENT_TYPE])
+        .allow_credentials(true);
 
     // Public routes (no auth required)
     let auth_routes = Router::new()

@@ -10,10 +10,7 @@ use crate::{
     error::Result,
     middleware::AuthUser,
     state::AppState,
-    user::{
-        user_dto::UpdateProfileRequest,
-        user_service::UserService,
-    },
+    user::user_dto::UpdateProfileRequest,
 };
 
 /// Get current user profile

@@ -15,10 +15,7 @@ use crate::{
     message::message_service::MessageService,
 };
 
-// Wait, I didn't move RefreshTokenRepository yet. It was created in src/repositories/refresh_token_repository.rs in Step 372.
-// I should probably move it to src/auth/repository.rs or src/user/repository.rs?
-// Or maybe src/auth/repository.rs is better.
-// Let's assume I'll move it to src/auth/repository.rs.
+
 
 #[derive(Clone)]
 pub struct AppState {

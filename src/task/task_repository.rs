@@ -29,21 +29,21 @@ impl TaskRepository {
         let mut count_query = "SELECT COUNT(*) FROM tasks WHERE user_id = $1".to_string();
         let mut params_count = 1;
 
-        if let Some(ref status) = filters.status {
+        if let Some(ref _status) = filters.status {
             params_count += 1;
             let filter = format!(" AND status = ${}", params_count);
             query.push_str(&filter);
             count_query.push_str(&filter);
         }
 
-        if let Some(ref priority) = filters.priority {
+        if let Some(ref _priority) = filters.priority {
             params_count += 1;
             let filter = format!(" AND priority = ${}", params_count);
             query.push_str(&filter);
             count_query.push_str(&filter);
         }
 
-        if let Some(ref search) = filters.search {
+        if let Some(ref _search) = filters.search {
             params_count += 1;
             let filter = format!(" AND (title ILIKE ${} OR description ILIKE ${})", params_count, params_count);
             query.push_str(&filter);

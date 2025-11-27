@@ -1,19 +1,13 @@
-#[path = "admin/routes.rs"]
 mod admin;
-#[path = "auth/routes.rs"]
 mod auth;
 mod db;
 mod error;
-#[path = "message/routes.rs"]
 mod message;
 mod middleware;
-#[path = "notification/routes.rs"]
 mod notification;
 mod routes;
 mod state;
-#[path = "task/routes.rs"]
 mod task;
-#[path = "user/routes.rs"]
 mod user;
 
 use auth::create_oauth_client;
@@ -42,7 +36,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load configuration
     let config = Arc::new(Config::from_env());
 
-    // Create database connection pool
+    // Create database connection pools changed to
     let database_url = std::env::var("DATABASE_URL")
         .expect("DATABASE_URL must be set");
     

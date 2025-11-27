@@ -34,6 +34,27 @@ impl RefreshTokenRepository {
         Ok(refresh_token)
     }
 
+    pub async fn create_with_tx(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        user_id: Uuid,
+        token: &str,
+        expires_at: DateTime<Utc>,
+    ) -> Result<RefreshToken> {
+        let refresh_token = sqlx::query_as::<_, RefreshToken>(
+            "INSERT INTO refresh_tokens (user_id, token, expires_at)
+             VALUES ($1, $2, $3)
+             RETURNING *",
+        )
+        .bind(user_id)
+        .bind(token)
+        .bind(expires_at)
+        .fetch_one(&mut **tx)
+        .await?;
+
+        Ok(refresh_token)
+    }
+
     pub async fn find_by_token(&self, token: &str) -> Result<Option<RefreshToken>> {
         let refresh_token = sqlx::query_as::<_, RefreshToken>(
             "SELECT * FROM refresh_tokens

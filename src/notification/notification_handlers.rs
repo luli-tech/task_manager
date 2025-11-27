@@ -14,7 +14,6 @@ use uuid::Uuid;
 use crate::{
     error::{AppError, Result},
     state::AppState,
-    middleware::AuthUser,
     notification::{
         notification_dto::UpdateNotificationPreferencesRequest,
         notification_models::Notification,

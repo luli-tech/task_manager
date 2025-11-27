@@ -171,7 +171,7 @@ pub async fn update_task(
     payload.validate()
         .map_err(|e| AppError::Validation(e.to_string()))?;
 
-    let existing_task = state.task_repository.find_by_id(task_id, user_id)
+    let _existing_task = state.task_repository.find_by_id(task_id, user_id)
         .await?
         .ok_or_else(|| AppError::NotFound("Task not found".to_string()))?;
 
