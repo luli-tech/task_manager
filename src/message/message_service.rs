@@ -28,8 +28,10 @@ impl MessageService {
         &self,
         user_id: Uuid,
         other_user_id: Uuid,
+        limit: i64,
+        offset: i64,
     ) -> Result<Vec<Message>> {
-        self.repo.find_conversation(user_id, other_user_id, 100, 0).await
+        self.repo.find_conversation(user_id, other_user_id, limit, offset).await
     }
 
     pub async fn get_conversations(&self, user_id: Uuid) -> Result<Vec<crate::message::message_dto::ConversationUser>> {
@@ -38,5 +40,9 @@ impl MessageService {
 
     pub async fn mark_read(&self, user_id: Uuid, message_id: Uuid) -> Result<()> {
         self.repo.mark_as_read(message_id, user_id).await
+    }
+
+    pub async fn mark_conversation_as_read(&self, user_id: Uuid, other_user_id: Uuid) -> Result<()> {
+        self.repo.mark_conversation_as_read(user_id, other_user_id).await
     }
 }

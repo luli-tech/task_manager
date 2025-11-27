@@ -77,6 +77,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     let task_service = crate::task::task_service::TaskService::new(task_repository.clone());
     let auth_service = crate::auth::auth_service::AuthService::new(
+        db.clone(),
         user_repository.clone(),
         refresh_token_repository.clone(),
         config.jwt_secret.clone(),

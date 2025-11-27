@@ -39,12 +39,8 @@ pub async fn register(
     payload.validate()
         .map_err(|e| AppError::Validation(e.to_string()))?;
 
-    let password_hash = hash_password(&payload.password)?;
-
-    // Start transaction
-    let mut tx = state.db.begin().await?;
-
-    let user = state.user_repository.create_with_tx(&mut tx, &payload.username, &payload.email, &password_hash)
+    let (user, access_token, refresh_token) = state.auth_service
+        .register(&payload.username, &payload.email, &payload.password)
         .await
         .map_err(|e| {
             if let AppError::Database(ref db_err) = e {
@@ -54,27 +50,6 @@ pub async fn register(
             }
             e
         })?;
-
-    let access_token = create_access_token(
-        user.id,
-        &user.email,
-        &user.role,
-        &state.config.jwt_secret,
-    )?;
-
-    let refresh_token = create_refresh_token(
-        user.id,
-        &user.email,
-        &user.role,
-        &state.config.jwt_secret,
-    )?;
-
-    // Store refresh token
-    let expires_at = Utc::now() + chrono::Duration::days(7);
-    state.refresh_token_repository.create_with_tx(&mut tx, user.id, &refresh_token, expires_at).await?;
-
-    // Commit transaction
-    tx.commit().await?;
 
     Ok((
         StatusCode::CREATED,
@@ -105,34 +80,9 @@ pub async fn login(
     payload.validate()
         .map_err(|e| AppError::Validation(e.to_string()))?;
 
-    let user = state.user_repository.find_by_email(&payload.email)
-        .await?
-        .ok_or_else(|| AppError::Authentication("Invalid credentials".to_string()))?;
-
-    let password_hash = user.password_hash.as_ref()
-        .ok_or_else(|| AppError::Authentication("Please use Google login".to_string()))?;
-
-    if !verify_password(&payload.password, password_hash)? {
-        return Err(AppError::Authentication("Invalid credentials".to_string()));
-    }
-
-    let access_token = create_access_token(
-        user.id,
-        &user.email,
-        &user.role,
-        &state.config.jwt_secret,
-    )?;
-
-    let refresh_token = create_refresh_token(
-        user.id,
-        &user.email,
-        &user.role,
-        &state.config.jwt_secret,
-    )?;
-
-    // Store refresh token
-    let expires_at = Utc::now() + chrono::Duration::days(7);
-    state.refresh_token_repository.create(user.id, &refresh_token, expires_at).await?;
+    let (user, access_token, refresh_token) = state.auth_service
+        .login(&payload.email, &payload.password)
+        .await?;
 
     Ok(Json(AuthResponse {
         access_token,
@@ -156,26 +106,9 @@ pub async fn refresh_token(
     State(state): State<AppState>,
     Json(payload): Json<RefreshTokenRequest>,
 ) -> Result<impl IntoResponse> {
-    // Verify JWT signature
-    let _claims = verify_jwt(&payload.refresh_token, &state.config.jwt_secret)?;
-
-    // Check if token exists in DB and is not expired
-    let _stored_token = state.refresh_token_repository.find_by_token(&payload.refresh_token)
-        .await?
-        .ok_or(AppError::Authentication("Invalid refresh token".to_string()))?;
-
-    // Get user to get current role
-    let user = state.user_repository.find_by_id(_stored_token.user_id)
-        .await?
-        .ok_or(AppError::Authentication("User not found".to_string()))?;
-
-    // Generate new access token
-    let access_token = create_access_token(
-        user.id,
-        &user.email,
-        &user.role,
-        &state.config.jwt_secret,
-    )?;
+    let (access_token, _refresh_token) = state.auth_service
+        .refresh_access_token(&payload.refresh_token)
+        .await?;
 
     Ok(Json(RefreshTokenResponse {
         access_token,
@@ -197,7 +130,7 @@ pub async fn logout(
     State(state): State<AppState>,
     Json(payload): Json<RefreshTokenRequest>,
 ) -> Result<impl IntoResponse> {
-    state.refresh_token_repository.delete_by_token(&payload.refresh_token).await?;
+    state.auth_service.logout(&payload.refresh_token).await?;
     Ok(StatusCode::OK)
 }
 
@@ -262,37 +195,14 @@ pub async fn google_callback(
         .await
         .map_err(|_| AppError::Authentication("Failed to parse user info".to_string()))?;
 
-    // Start transaction
-    let mut tx = state.db.begin().await?;
-
-    let user = state.user_repository.upsert_google_user_with_tx(
-        &mut tx,
-        &user_info.name,
-        &user_info.email,
-        &user_info.id,
-        user_info.picture.as_deref().unwrap_or(""),
-    ).await?;
-
-    let access_token = create_access_token(
-        user.id,
-        &user.email,
-        &user.role,
-        &state.config.jwt_secret,
-    )?;
-
-    let refresh_token = create_refresh_token(
-        user.id,
-        &user.email,
-        &user.role,
-        &state.config.jwt_secret,
-    )?;
-
-    // Store refresh token
-    let expires_at = Utc::now() + chrono::Duration::days(7);
-    state.refresh_token_repository.create_with_tx(&mut tx, user.id, &refresh_token, expires_at).await?;
-
-    // Commit transaction
-    tx.commit().await?;
+    let (user, access_token, refresh_token) = state.auth_service
+        .google_login_or_register(
+            &user_info.name,
+            &user_info.email,
+            &user_info.id,
+            user_info.picture.as_deref().unwrap_or(""),
+        )
+        .await?;
 
     Ok(Json(AuthResponse {
         access_token,

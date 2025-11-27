@@ -68,7 +68,7 @@ pub async fn get_tasks(
         limit: Some(limit),
     };
 
-    let (tasks, total) = state.task_repository.find_all(user_id, repo_filters).await?;
+    let (tasks, total) = state.task_service.list_tasks(user_id, repo_filters).await?;
 
     let total_pages = (total as f64 / limit as f64).ceil() as u32;
 
@@ -81,46 +81,17 @@ pub async fn get_tasks(
     }))
 }
 
-/// Get a single task by ID
-#[utoipa::path(
-    get,
-    path = "/api/tasks/{id}",
-    params(
-        ("id" = Uuid, Path, description = "Task ID")
-    ),
-    responses(
-        (status = 200, description = "Task found", body = Task),
-        (status = 404, description = "Task not found"),
-        (status = 401, description = "Unauthorized")
-    ),
-    tag = "tasks",
-    security(("bearer_auth" = []))
-)]
+// ... (get_task)
 pub async fn get_task(
     State(state): State<AppState>,
     Extension(user_id): Extension<Uuid>,
     Path(task_id): Path<Uuid>,
 ) -> Result<Json<Task>> {
-    let task = state.task_repository.find_by_id(task_id, user_id)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Task not found".to_string()))?;
-
+    let task = state.task_service.get_task(user_id, task_id).await?;
     Ok(Json(task))
 }
 
-/// Create a new task
-#[utoipa::path(
-    post,
-    path = "/api/tasks",
-    request_body = CreateTaskRequest,
-    responses(
-        (status = 201, description = "Task created", body = Task),
-        (status = 400, description = "Validation error"),
-        (status = 401, description = "Unauthorized")
-    ),
-    tag = "tasks",
-    security(("bearer_auth" = []))
-)]
+// ... (create_task)
 pub async fn create_task(
     State(state): State<AppState>,
     Extension(user_id): Extension<Uuid>,
@@ -129,16 +100,7 @@ pub async fn create_task(
     payload.validate()
         .map_err(|e| AppError::Validation(e.to_string()))?;
 
-    let priority = payload.priority.unwrap_or_else(|| "Medium".to_string());
-
-    let task = state.task_repository.create(
-        user_id,
-        &payload.title,
-        payload.description.as_deref(),
-        &priority,
-        payload.due_date,
-        payload.reminder_time,
-    ).await?;
+    let task = state.task_service.create_task(user_id, payload).await?;
 
     // Broadcast task creation
     let _ = state.task_tx.send((user_id, task.clone()));
@@ -146,22 +108,7 @@ pub async fn create_task(
     Ok((StatusCode::CREATED, Json(task)))
 }
 
-/// Update a task
-#[utoipa::path(
-    put,
-    path = "/api/tasks/{id}",
-    params(
-        ("id" = Uuid, Path, description = "Task ID")
-    ),
-    request_body = UpdateTaskRequest,
-    responses(
-        (status = 200, description = "Task updated", body = Task),
-        (status = 404, description = "Task not found"),
-        (status = 401, description = "Unauthorized")
-    ),
-    tag = "tasks",
-    security(("bearer_auth" = []))
-)]
+// ... (update_task)
 pub async fn update_task(
     State(state): State<AppState>,
     Extension(user_id): Extension<Uuid>,
@@ -171,20 +118,7 @@ pub async fn update_task(
     payload.validate()
         .map_err(|e| AppError::Validation(e.to_string()))?;
 
-    let _existing_task = state.task_repository.find_by_id(task_id, user_id)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Task not found".to_string()))?;
-
-    let task = state.task_repository.update(
-        task_id,
-        user_id,
-        payload.title.as_deref(),
-        payload.description.as_deref(),
-        payload.status.as_deref(),
-        payload.priority.as_deref(),
-        payload.due_date,
-        payload.reminder_time,
-    ).await?;
+    let task = state.task_service.update_task(user_id, task_id, payload).await?;
 
     // Broadcast task update
     let _ = state.task_tx.send((user_id, task.clone()));
@@ -192,27 +126,13 @@ pub async fn update_task(
     Ok(Json(task))
 }
 
-/// Delete a task
-#[utoipa::path(
-    delete,
-    path = "/api/tasks/{id}",
-    params(
-        ("id" = Uuid, Path, description = "Task ID")
-    ),
-    responses(
-        (status = 204, description = "Task deleted"),
-        (status = 404, description = "Task not found"),
-        (status = 401, description = "Unauthorized")
-    ),
-    tag = "tasks",
-    security(("bearer_auth" = []))
-)]
+// ... (delete_task)
 pub async fn delete_task(
     State(state): State<AppState>,
     Extension(user_id): Extension<Uuid>,
     Path(task_id): Path<Uuid>,
 ) -> Result<StatusCode> {
-    let rows_affected = state.task_repository.delete(task_id, user_id).await?;
+    let rows_affected = state.task_service.delete_task(user_id, task_id).await?;
 
     if rows_affected == 0 {
         return Err(AppError::NotFound("Task not found".to_string()));
@@ -221,31 +141,14 @@ pub async fn delete_task(
     Ok(StatusCode::NO_CONTENT)
 }
 
-/// Update task status
-#[utoipa::path(
-    patch,
-    path = "/api/tasks/{id}/status",
-    params(
-        ("id" = Uuid, Path, description = "Task ID")
-    ),
-    request_body = UpdateTaskStatusRequest,
-    responses(
-        (status = 200, description = "Status updated", body = Task),
-        (status = 404, description = "Task not found"),
-        (status = 401, description = "Unauthorized")
-    ),
-    tag = "tasks",
-    security(("bearer_auth" = []))
-)]
+// ... (update_task_status)
 pub async fn update_task_status(
     State(state): State<AppState>,
     Extension(user_id): Extension<Uuid>,
     Path(task_id): Path<Uuid>,
     Json(payload): Json<UpdateTaskStatusRequest>,
 ) -> Result<Json<Task>> {
-    let task = state.task_repository.update_status(task_id, user_id, &payload.status)
-        .await?
-    .ok_or_else(|| AppError::NotFound("Task not found".to_string()))?;
+    let task = state.task_service.update_status(user_id, task_id, payload).await?;
 
     // Broadcast task status update
     let _ = state.task_tx.send((user_id, task.clone()));

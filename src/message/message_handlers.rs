@@ -63,13 +63,8 @@ pub async fn send_message(
 
     // Create message
     let message = state
-        .message_repository
-        .create(
-            user_id,
-            payload.receiver_id,
-            &payload.content,
-            payload.image_url.as_deref(),
-        )
+        .message_service
+        .send_message(user_id, payload.clone())
         .await?;
 
     // Broadcast message to SSE subscribers
@@ -90,22 +85,7 @@ pub async fn send_message(
     Ok((StatusCode::CREATED, Json(MessageResponse::from(message))))
 }
 
-/// Get conversation with a specific user
-#[utoipa::path(
-    get,
-    path = "/api/messages/{user_id}",
-    tag = "messages",
-    params(
-        ("user_id" = Uuid, Path, description = "User ID to get conversation with")
-    ),
-    responses(
-        (status = 200, description = "Conversation retrieved successfully", body = PaginatedResponse<MessageResponse>),
-        (status = 401, description = "Unauthorized")
-    ),
-    security(
-        ("bearer_auth" = [])
-    )
-)]
+// ... (get_conversation)
 pub async fn get_conversation(
     State(state): State<AppState>,
     AuthUser(user_id): AuthUser,
@@ -117,13 +97,13 @@ pub async fn get_conversation(
     let offset = ((page - 1) * limit) as i64;
 
     let messages = state
-        .message_repository
-        .find_conversation(user_id, other_user_id, limit as i64, offset)
+        .message_service
+        .get_conversation(user_id, other_user_id, limit as i64, offset)
         .await?;
 
     // Mark messages from other user as read
     let _ = state
-        .message_repository
+        .message_service
         .mark_conversation_as_read(user_id, other_user_id)
         .await;
 
@@ -146,56 +126,28 @@ pub async fn get_conversation(
     Ok((StatusCode::OK, Json(response)))
 }
 
-/// Get list of conversations
-#[utoipa::path(
-    get,
-    path = "/api/messages/conversations",
-    tag = "messages",
-    responses(
-        (status = 200, description = "Conversations retrieved successfully", body = Vec<ConversationUser>),
-        (status = 401, description = "Unauthorized")
-    ),
-    security(
-        ("bearer_auth" = [])
-    )
-)]
+// ... (get_conversations)
 pub async fn get_conversations(
     State(state): State<AppState>,
     AuthUser(user_id): AuthUser,
 ) -> Result<impl IntoResponse> {
     let conversations = state
-        .message_repository
-        .find_user_conversations(user_id)
+        .message_service
+        .get_conversations(user_id)
         .await?;
 
     Ok((StatusCode::OK, Json(conversations)))
 }
 
-/// Mark a message as read
-#[utoipa::path(
-    patch,
-    path = "/api/messages/{id}/read",
-    tag = "messages",
-    params(
-        ("id" = Uuid, Path, description = "Message ID")
-    ),
-    responses(
-        (status = 200, description = "Message marked as read"),
-        (status = 401, description = "Unauthorized"),
-        (status = 404, description = "Message not found")
-    ),
-    security(
-        ("bearer_auth" = [])
-    )
-)]
+// ... (mark_message_read)
 pub async fn mark_message_read(
     State(state): State<AppState>,
     AuthUser(user_id): AuthUser,
     Path(message_id): Path<Uuid>,
 ) -> Result<impl IntoResponse> {
     state
-        .message_repository
-        .mark_as_read(message_id, user_id)
+        .message_service
+        .mark_read(user_id, message_id)
         .await?;
 
     Ok(StatusCode::OK)

@@ -54,30 +54,7 @@ impl UserRepository {
         Ok(user)
     }
 
-    pub async fn upsert_google_user(
-        &self,
-        username: &str,
-        email: &str,
-        google_id: &str,
-        avatar_url: &str,
-    ) -> Result<User> {
-        let user = sqlx::query_as::<_, User>(
-            "INSERT INTO users (username, email, google_id, avatar_url)
-             VALUES ($1, $2, $3, $4)
-             ON CONFLICT (google_id) DO UPDATE SET
-                avatar_url = EXCLUDED.avatar_url,
-                updated_at = NOW()
-             RETURNING *"
-        )
-        .bind(username)
-        .bind(email)
-        .bind(google_id)
-        .bind(avatar_url)
-        .fetch_one(&self.pool)
-        .await?;
 
-        Ok(user)
-    }
 
     pub async fn upsert_google_user_with_tx(
         &self,
