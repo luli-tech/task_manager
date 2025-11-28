@@ -53,7 +53,7 @@ where
             .get::<Uuid>()
             .copied()
             .map(AuthUser)
-           .ok_or(AppError::Unauthorized("Invalid credentials".to_string()))?;
+           .ok_or(AppError::Unauthorized("Invalid credentials".to_string()))?
 
     }
 }
