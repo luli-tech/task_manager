@@ -39,9 +39,13 @@ pub async fn register(
     payload.validate()
         .map_err(|e| AppError::Validation(e.to_string()))?;
 
+           // Hash password using imported function
+    let password_hash = hash_password(&payload.password)?;
+
     let (user, access_token, refresh_token) = state.auth_service
-        .register(&payload.username, &payload.email, &payload.password)
+        .register(&payload.username, &payload.email, &password_hash)
         .await
+
         .map_err(|e| {
             if let AppError::Database(ref db_err) = e {
                 if db_err.to_string().contains("duplicate key") {
@@ -54,8 +58,8 @@ pub async fn register(
     Ok((
         StatusCode::CREATED,
         Json(AuthResponse {
-            access_token,
-            refresh_token,
+            access_token:create_access_token(&user)?,
+            refresh_token:create_refresh_token(&user)?,
             user: user.into(),
         }),
     ))
@@ -80,13 +84,17 @@ pub async fn login(
     payload.validate()
         .map_err(|e| AppError::Validation(e.to_string()))?;
 
-    let (user, access_token, refresh_token) = state.auth_service
-        .login(&payload.email, &payload.password)
-        .await?;
+    // let (user, access_token, refresh_token) = state.auth_service
+    //     .login(&payload.email, &payload.password)
+    //     .await?;
+    let user = state.auth_service.find_by_email(&payload.email).await?
+        .ok_or(AppError::Unauthorized("Invalid credentials".into()))?;
 
+    // Verify password using imported function
+    verify_password(&payload.password, &user.password_hash)?;
     Ok(Json(AuthResponse {
-        access_token,
-        refresh_token,
+        access_token:create_access_token(&user)?,
+        refresh_token:create_refresh_token(&user)?,
         user: user.into(),
     }))
 }
@@ -106,12 +114,20 @@ pub async fn refresh_token(
     State(state): State<AppState>,
     Json(payload): Json<RefreshTokenRequest>,
 ) -> Result<impl IntoResponse> {
-    let (access_token, _refresh_token) = state.auth_service
-        .refresh_access_token(&payload.refresh_token)
-        .await?;
+    // let (access_token, _refresh_token) = state.auth_service
+    //     .refresh_access_token(&payload.refresh_token)
+    //     .await?;
+
+    // Ok(Json(RefreshTokenResponse {
+    //     access_token:create_access_token(&user)?,
+    // }))
+     let user_id = verify_jwt(&payload.refresh_token)?;
+    let user = state.auth_service.find_by_id(user_id)
+        .await?
+        .ok_or(AppError::Unauthorized("Invalid refresh token".into()))?;
 
     Ok(Json(RefreshTokenResponse {
-        access_token,
+        access_token: create_access_token(&user)?,
     }))
 }
 
