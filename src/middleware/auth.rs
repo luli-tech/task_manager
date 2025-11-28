@@ -48,12 +48,14 @@ where
     type Rejection = AppError;
 
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-        parts
-            .extensions
-            .get::<Uuid>()
-            .copied()
-            .map(AuthUser)
-           .ok_or(AppError::Unauthorized("Invalid credentials".to_string()))?
-
+        Ok(
+            parts
+                .extensions
+                .get::<Uuid>()
+                .copied()
+                .map(AuthUser)
+                .ok_or(AppError::Unauthorized("Invalid credentials".to_string()))?
+        )
     }
 }
+
