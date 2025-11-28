@@ -1,3 +1,4 @@
+use uuid::Uuid;
 use crate::{
     auth::{
         create_access_token, create_refresh_token, hash_password, verify_password, verify_jwt,
@@ -88,7 +89,7 @@ pub async fn login(
     //     .login(&payload.email, &payload.password)
     //     .await?;
     let user = state.auth_service.find_by_email(&payload.email).await?
-        .ok_or(AppError::Unauthorized("Invalid credentials".into()))?;
+      .ok_or(AppError::Unauthorized("Invalid credentials".to_string()))?;
 
     // Verify password using imported function
     verify_password(&payload.password, &user.password_hash)?;
@@ -122,11 +123,13 @@ pub async fn refresh_token(
     //     access_token:create_access_token(&user)?,
     // }))
 let claims = verify_jwt(&payload.refresh_token, &state.config.jwt_secret)?;
-let user_id = claims.sub; // or whatever field has the UUID
+let user_id = Uuid::parse_str(&claims.sub)
+    .map_err(|_| AppError::Unauthorized("Invalid refresh token".to_string()))?;
 
     let user = state.auth_service.find_by_id(user_id)
         .await?
-        .ok_or(AppError::Unauthorized("Invalid refresh token".into()))?;
+        .ok_or(AppError::Unauthorized("Invalid refresh token".to_string()))?;
+
 
     Ok(Json(RefreshTokenResponse {
         access_token: create_access_token(user.id, &user.email, &user.role, &state.config.jwt_secret)?,
