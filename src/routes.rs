@@ -124,6 +124,9 @@ pub fn create_router(state: AppState) -> Router {
         .allow_origin(AllowOrigin::list([
             "http://localhost:3000".parse().unwrap(),
             "http://127.0.0.1:3000".parse().unwrap(),
+            "https://preview-task-manager-web-app-kzmr08fjkyg1tq51kj1l.vusercontent.net"
+            .parse()
+            .unwrap(),
         ]))
         .allow_methods([
             Method::GET,
