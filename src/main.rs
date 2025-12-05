@@ -9,6 +9,7 @@ mod routes;
 mod state;
 mod task;
 mod user;
+mod websocket;
 
 use auth::create_oauth_client;
 use db::{create_pool, run_migrations};

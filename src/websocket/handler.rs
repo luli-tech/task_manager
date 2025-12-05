@@ -1,0 +1,166 @@
+use axum::{
+    extract::{
+        ws::{Message, WebSocket},
+        State, WebSocketUpgrade,
+    },
+    response::Response,
+};
+use futures::{sink::SinkExt, stream::StreamExt};
+use tokio::sync::mpsc;
+use uuid::Uuid;
+
+use crate::{
+    error::{AppError, Result},
+    middleware::AuthUser,
+    state::AppState,
+    websocket::types::{ChatMessagePayload, ClientMessage, ErrorPayload, UserStatusPayload, WsMessage},
+};
+
+use super::connection::WsSender;
+
+/// WebSocket upgrade handler
+pub async fn ws_handler(
+    ws: WebSocketUpgrade,
+    State(state): State<AppState>,
+    AuthUser(user_id): AuthUser,
+) -> Response {
+    ws.on_upgrade(move |socket| handle_socket(socket, user_id, state))
+}
+
+/// Handle individual WebSocket connection
+async fn handle_socket(socket: WebSocket, user_id: Uuid, state: AppState) {
+    let (mut sender, mut receiver) = socket.split();
+    let (tx, mut rx) = mpsc::unbounded_channel::<WsMessage>();
+
+    // Add connection to manager
+    state.ws_connections.add_connection(user_id, tx.clone());
+
+    // Broadcast user online status
+    let online_status = WsMessage::UserStatus(UserStatusPayload {
+        user_id,
+        is_online: true,
+    });
+    state.ws_connections.broadcast(online_status);
+
+    // Spawn task to send messages from channel to WebSocket
+    let mut send_task = tokio::spawn(async move {
+        while let Some(msg) = rx.recv().await {
+            if let Ok(json) = serde_json::to_string(&msg) {
+                if sender.send(Message::Text(json)).await.is_err() {
+                    break;
+                }
+            }
+        }
+    });
+
+    // Spawn task to receive messages from WebSocket
+    let state_clone = state.clone();
+    let tx_clone = tx.clone();
+    let mut recv_task = tokio::spawn(async move {
+        while let Some(Ok(msg)) = receiver.next().await {
+            if let Message::Text(text) = msg {
+                if let Err(e) = process_client_message(&text, user_id, &state_clone, &tx_clone).await {
+                    tracing::error!("Error processing message: {:?}", e);
+                    let error_msg = WsMessage::Error(ErrorPayload {
+                        message: e.to_string(),
+                    });
+                    let _ = tx_clone.send(error_msg);
+                }
+            } else if let Message::Close(_) = msg {
+                break;
+            }
+        }
+    });
+
+    // Wait for either task to finish
+    tokio::select! {
+        _ = &mut send_task => recv_task.abort(),
+        _ = &mut recv_task => send_task.abort(),
+    }
+
+    // Remove connection and broadcast offline status
+    state.ws_connections.remove_connection(&user_id);
+    let offline_status = WsMessage::UserStatus(UserStatusPayload {
+        user_id,
+        is_online: false,
+    });
+    state.ws_connections.broadcast(offline_status);
+
+    tracing::info!("WebSocket connection closed for user {}", user_id);
+}
+
+/// Process incoming client messages
+async fn process_client_message(
+    text: &str,
+    user_id: Uuid,
+    state: &AppState,
+    _tx: &WsSender,
+) -> Result<()> {
+    let client_msg: ClientMessage = serde_json::from_str(text)
+        .map_err(|e| AppError::BadRequest(format!("Invalid message format: {}", e)))?;
+
+    match client_msg {
+        ClientMessage::SendMessage {
+            receiver_id,
+            content,
+            image_url,
+        } => {
+            // Verify receiver exists
+            let _receiver = state
+                .user_repository
+                .find_by_id(receiver_id)
+                .await?
+                .ok_or(AppError::NotFound("Receiver not found".to_string()))?;
+
+            // Create message in database
+            let message = state
+                .message_repository
+                .create(user_id, receiver_id, &content, image_url.as_deref())
+                .await?;
+
+            // Send via WebSocket to receiver
+            let ws_message = WsMessage::ChatMessage(ChatMessagePayload {
+                id: message.id,
+                sender_id: message.sender_id,
+                receiver_id: message.receiver_id,
+                content: message.content.clone(),
+                image_url: message.image_url.clone(),
+                created_at: message.created_at.to_rfc3339(),
+            });
+
+            state.ws_connections.send_to_user(&receiver_id, ws_message.clone());
+            
+            // Also send back to sender for confirmation
+            state.ws_connections.send_to_user(&user_id, ws_message);
+
+            // Create notification for receiver
+            let notification_message = if message.image_url.is_some() {
+                "New message with image".to_string()
+            } else {
+                format!("New message: {}", &message.content)
+            };
+
+            let _ = state
+                .notification_repository
+                .create(receiver_id, None, &notification_message)
+                .await;
+        }
+        ClientMessage::TypingIndicator {
+            conversation_with,
+            is_typing,
+        } => {
+            let typing_msg = WsMessage::TypingIndicator(crate::websocket::types::TypingIndicatorPayload {
+                user_id,
+                is_typing,
+                conversation_with,
+            });
+            state.ws_connections.send_to_user(&conversation_with, typing_msg);
+        }
+        ClientMessage::MarkMessageDelivered { message_id } => {
+            // Mark message as read
+            let _ = state.message_repository.mark_as_read(message_id, user_id).await;
+        }
+    }
+
+    Ok(())
+}

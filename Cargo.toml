@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 # Web framework
-axum = { version = "0.7", features = ["macros"] }
+axum = { version = "0.7", features = ["macros", "ws"] }
 tokio = { version = "1", features = ["full"] }
 tower = { version = "0.4", features = ["util"] }
 tower-http = { version = "0.5", features = ["cors", "trace"] }
@@ -45,3 +45,6 @@ anyhow = "1.0"
 thiserror = "1.0"
 futures = "0.3.31"
 tokio-stream = { version = "0.1.17", features = ["sync"] }
+
+# WebSocket and concurrent data structures
+dashmap = "6.1"
