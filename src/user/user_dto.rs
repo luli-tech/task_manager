@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use validator::Validate;
-use uuid::Uuid;
+use validator::Validate;
 
 #[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct UpdateProfileRequest {

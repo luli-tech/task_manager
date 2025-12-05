@@ -2,7 +2,7 @@ use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
     response::IntoResponse,
-    Extension, Json,
+    Json,
 };
 use serde::Deserialize;
 use validator::Validate;

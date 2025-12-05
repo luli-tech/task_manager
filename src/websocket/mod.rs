@@ -4,4 +4,4 @@ pub mod types;
 
 pub use connection::ConnectionManager;
 pub use handler::ws_handler;
-pub use types::*;
+

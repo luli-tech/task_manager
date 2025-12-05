@@ -1,13 +1,3 @@
-use uuid::Uuid;
-use crate::{
-    auth::{
-        create_access_token, create_refresh_token, hash_password, verify_password, verify_jwt,
-        oauth::GoogleUserInfo,
-    },
-    error::{AppError, Result},
-    state::AppState,
-};
-use super::auth_dto::{AuthResponse, LoginRequest, RegisterRequest, RefreshTokenRequest, RefreshTokenResponse};
 use axum::{extract::{State, Query}, http::StatusCode, response::{IntoResponse, Redirect}, Json};
 use oauth2::{CsrfToken, PkceCodeChallenge, Scope, AuthorizationCode, TokenResponse};
 use serde::Deserialize;

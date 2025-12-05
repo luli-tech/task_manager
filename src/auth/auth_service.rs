@@ -87,7 +87,7 @@ impl AuthService {
     pub async fn refresh_access_token(&self, refresh_token: &str) -> Result<(String, String)> {
         let claims = verify_jwt(refresh_token, &self.jwt_secret)?;
         
-        let stored_token = self
+        let _stored_token = self
             .refresh_token_repo
             .find_by_token(refresh_token)
             .await?
