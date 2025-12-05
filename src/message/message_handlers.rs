@@ -69,11 +69,14 @@ pub async fn send_message(
 
     // Broadcast message via WebSocket
     let ws_message = crate::websocket::types::WsMessage::ChatMessage(crate::websocket::types::ChatMessagePayload {
+        id: message.id,
+        sender_id: user_id,
         receiver_id: payload.receiver_id,
         content: message.content.clone(),
         image_url: message.image_url.clone(),
+        created_at: message.created_at.to_rfc3339(),
     });
-    state.ws_connections.send_to_user(&payload.receiver_id, ws_message);
+    state.ws_connections.send_to_user(&payload.receiver_id, ws_message).await;
 
     // Create notification for receiver
     let notification_message = if message.image_url.is_some() {
